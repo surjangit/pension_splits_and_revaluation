@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Leaving Pension — Splits & GMP (Dates only)</title>
+<meta name="description" content="Enter Date Joined and Date Left — get pre-88, post-88, pre-97/post-97 splits, illustrative accrual %, revaluation and estimated GMP/excess (no extra inputs)." />
+<style>
+  :root{
+    --bg:#f7f7f8; --card:#fff; --muted:#6b7280; --accent:#0b3d91; --accent2:#d9a400;
+    --radius:12px; --maxw:980px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Georgia, 'Times New Roman', serif; background:var(--bg); color:#0b1220; -webkit-font-smoothing:antialiased; padding:18px; display:flex; justify-content:center;}
+  .wrap{width:100%;max-width:var(--maxw)}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .brand{display:flex;gap:12px;align-items:center}
+  .logo{width:56px;height:56px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#0b66b8);color:white;display:grid;place-items:center;font-weight:800}
+  h1{margin:0;font-size:20px}
+  .subtitle{font-size:13px;color:var(--muted)}
+  main{margin-top:16px}
+  .card{background:var(--card);padding:16px;border-radius:var(--radius);box-shadow:0 10px 30px rgba(11,61,145,0.06);border:1px solid rgba(0,0,0,0.03)}
+  .grid{display:grid;grid-template-columns:1fr;gap:12px}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-family:Arial,Helvetica,sans-serif}
+  input[type="date"], input[type="number"]{width:100%;padding:10px;border-radius:8px;border:1px solid #e6e6e6;font-size:14px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .col{flex:1;min-width:140px}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .btn{padding:10px 14px;border-radius:8px;border:0;background:var(--accent);color:white;font-weight:700;cursor:pointer}
+  .btn.ghost{background:transparent;border:1px solid rgba(11,61,145,0.08);color:var(--accent)}
+  .result{margin-top:14px}
+  .panel{background:#fff;border-radius:10px;padding:12px;border:1px solid rgba(11,61,145,0.04)}
+  table{width:100%;border-collapse:collapse;margin-top:8px}
+  th,td{padding:8px;border-bottom:1px solid #f0f2f5;text-align:left;font-size:14px}
+  th{color:var(--accent);font-weight:700}
+  .muted{color:var(--muted)}
+  .explain{background:#fcfbf7;border-left:4px solid var(--accent2);padding:10px;border-radius:6px;margin-top:10px;font-size:14px}
+  .small{font-size:13px;color:var(--muted)}
+  .kbd{background:#f3f4f6;padding:6px 8px;border-radius:6px;font-family:monospace;font-size:13px}
+  @media(min-width:860px){
+    .grid{grid-template-columns:repeat(2,1fr)}
+    h1{font-size:24px}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo">L</div>
+        <div>
+          <h1>Leaving Pension — Splits & GMP</h1>
+          <div class="subtitle">Enter joining and leaving dates only — get split breakdown and illustrative accrual/revaluation</div>
+        </div>
+      </div>
+      <div class="small muted">Crafted With Love By Surjan Dhungal</div>
+    </header>
+
+    <main>
+      <section class="card">
+        <form id="form" onsubmit="return false;">
+          <div class="grid">
+            <div>
+              <label for="joined">Date Joined (scheme)</label>
+              <input id="joined" type="date" required />
+            </div>
+            <div>
+              <label for="left">Date Left (scheme)</label>
+              <input id="left" type="date" required />
+            </div>
+
+            <!-- Optional: Deferred pension value (annual at leaving) -->
+            <div>
+              <label for="deferredValue">Deferred pension at leaving (annual £) — optional</label>
+              <input id="deferredValue" type="number" min="0" step="0.01" placeholder="e.g. 1250.00" />
+              <div class="small muted">If entered, we will revalue this amount to retirement (illustrative) and show predicted pension.</div>
+            </div>
+
+            <!-- Optional: Years to retirement for illustrative revaluation -->
+            <div>
+              <label for="yearsToRetire">Years until retirement (example)</label>
+              <input id="yearsToRetire" type="number" min="0" step="0.1" value="5" />
+              <div class="small muted">Used to revalue accrued amounts to retirement. Change for alternate scenarios.</div>
+            </div>
+
+          </div>
+
+          <div class="actions">
+            <button class="btn" id="calc">Show splits</button>
+            <button class="btn ghost" id="reset" type="button">Reset</button>
+          </div>
+
+        </form>
+
+        <div id="out" class="result" aria-live="polite"></div>
+
+        <div class="explain">
+          <strong>How this tool works (brief)</strong>
+          <ul class="muted">
+            <li>Only dates are required. The page computes service in each legal split and shows illustrative accruals as <em>% of final salary</em> using built-in example rates (no salary asked).</li>
+            <li>If you enter a deferred pension amount (annual) at leaving, we will revalue it to retirement using the splits-weighted revaluation factor and show a predicted pension amount (illustrative).</li>
+            <li>GMP is estimated for demonstration only — use scheme actuarial data for precise values.</li>
+          </ul>
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+<script>
+  // === Hardcoded scheme/example rates & boundaries ===
+  const split88 = new Date('1988-04-06T00:00:00'); // pre-88 is before this date
+  const split97 = new Date('1997-04-06T00:00:00'); // pre-97 is before this date
+  const gmpStart = new Date('1978-04-06T00:00:00'); // GMP service window start
+  const gmpEnd = new Date('1997-04-05T23:59:59');   // GMP service window end
+
+  // Example accrual rates (per year)
+  const pre97Accrual = 0.02;      // 2% per year (1/50)
+  const post97Accrual = 0.016667; // 1.6667% per year (≈1/60)
+
+  // Example revaluation rates (annual %)
+  const pre97RevalPct = 3.0;
+  const post97RevalPct = 2.5;
+
+  // Illustrative GMP accrual (% of salary per GMP year) — demonstration only
+  const illustrativeGMPAccrualPctPerYear = 0.0025; // 0.25% pa
+
+  // utilities
+  function parseDate(v){ if(!v) return null; const d = new Date(v + 'T00:00:00'); return isNaN(d) ? null : d; }
+  function monthsBetween(d1, d2){
+    let months = (d2.getFullYear() - d1.getFullYear()) * 12 + (d2.getMonth() - d1.getMonth());
+    if (d2.getDate() < d1.getDate()) months -= 1;
+    return months;
+  }
+  function yearsMonths(totalMonths){ const years = Math.floor(totalMonths / 12); const months = totalMonths % 12; return {years, months}; }
+  function formatPct(p){ return (p*100).toFixed(3) + '%'; }
+  function formatGBP(n){ return '£' + Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  function compoundFactor(pct){ return (1 + pct/100); } // for yearly compounding in loops
+
+  // overlap months between [A,B] and [C,D]
+  function monthsOverlap(startA, endA, startB, endB){
+    const s = startA > startB ? startA : startB;
+    const e = endA < endB ? endA : endB;
+    if(!s || !e || e < s) return 0;
+    return monthsBetween(s, e);
+  }
+
+  // DOM
+  const calcBtn = document.getElementById('calc');
+  const resetBtn = document.getElementById('reset');
+  const out = document.getElementById('out');
+
+  calcBtn.addEventListener('click', ()=>{
+    out.innerHTML = '';
+    const joined = parseDate(document.getElementById('joined').value);
+    const left = parseDate(document.getElementById('left').value);
+    const deferredValue = Number(document.getElementById('deferredValue').value) || null;
+    const yearsToRetirement = Number(document.getElementById('yearsToRetire').value) || 0;
+
+    if(!joined || !left){
+      out.innerHTML = `<div class="panel"><strong style="color:#b33">Enter both dates.</strong><div class="small muted">Both join and leave dates are required.</div></div>`;
+      return;
+    }
+    if(left < joined){
+      out.innerHTML = `<div class="panel"><strong style="color:#b33">Date Left cannot be earlier than Date Joined.</strong></div>`;
+      return;
+    }
+
+    // total months and parts
+    const totalMonths = monthsBetween(joined, left);
+    const totalYearsExact = totalMonths/12;
+
+    // pre-88 months (before 6 Apr 1988)
+    const pre88End = new Date(split88.getTime() - 24*60*60*1000);
+    let pre88Months = 0;
+    if(joined <= pre88End){
+      const a = joined;
+      const b = left < pre88End ? left : pre88End;
+      if(b >= a) pre88Months = monthsBetween(a,b);
+    }
+
+    // post-88 to pre-97 months (6 Apr 1988 — 5 Apr 1997)
+    const post88Start = split88;
+    const pre97End = new Date(split97.getTime() - 24*60*60*1000);
+    let post88toPre97Months = 0;
+    if(left >= post88Start){
+      const a = joined > post88Start ? joined : post88Start;
+      const b = left < pre97End ? left : pre97End;
+      if(b >= a) post88toPre97Months = monthsBetween(a,b);
+    }
+
+    // post-97 months (on/after 6 Apr 1997)
+    let post97Months = 0;
+    if(left >= split97){
+      const a = joined > split97 ? joined : split97;
+      const b = left;
+      if(b >= a) post97Months = monthsBetween(a,b);
+    }
+
+    // GMP months overlap between service & (6 Apr 1978 - 5 Apr 1997)
+    const gmpMonths = monthsOverlap(joined, left, gmpStart, gmpEnd);
+
+    // years exact
+    const pre88YearsExact = pre88Months/12;
+    const post88pre97YearsExact = post88toPre97Months/12;
+    const post97YearsExact = post97Months/12;
+    const gmpYearsExact = gmpMonths/12;
+
+    // accrual % of salary
+    const pre97AccPct = pre97Accrual;
+    const post97AccPct = post97Accrual;
+    const pre88AccruedPct = pre88YearsExact * pre97AccPct; // pre-88 uses pre-97 rate
+    const post88pre97AccruedPct = post88pre97YearsExact * pre97AccPct;
+    const post97AccruedPct = post97YearsExact * post97AccPct;
+    const totalAccruedPct = pre88AccruedPct + post88pre97AccruedPct + post97AccruedPct;
+
+    // illustrative GMP estimation
+    const illustrativeGMPPct = gmpYearsExact * illustrativeGMPAccrualPctPerYear;
+    const excessGMPPct = Math.max(0, totalAccruedPct - illustrativeGMPPct);
+
+    // Revaluation factors (compound to retirement)
+    function compound(amountPct, annualPct, years){
+      return amountPct * Math.pow(1 + annualPct/100, years);
+    }
+    const pre88RevalPctVal = compound(pre88AccruedPct, pre97RevalPct, yearsToRetirement);
+    const post88pre97RevalPct = compound(post88pre97AccruedPct, pre97RevalPct, yearsToRetirement);
+    const post97RevalPctVal = compound(post97AccruedPct, post97RevalPct, yearsToRetirement);
+    const totalRevalPct = pre88RevalPctVal + post88pre97RevalPct + post97RevalPctVal;
+
+    // If user provided deferred pension amount (annual £ at leaving), revalue it to retirement.
+    // We'll compute a splits-weighted revaluation factor based on accrued pct from each split.
+    let predictedPensionAtRetirement = null;
+    let revalFactorUsed = null;
+    if(deferredValue && deferredValue > 0){
+      // compute weights based on accrued pct contribution from each split
+      const weights = [];
+      if(totalAccruedPct > 0){
+        weights.push({factor: Math.pow(1 + pre97RevalPct/100, yearsToRetirement), weight: pre88AccruedPct});
+        weights.push({factor: Math.pow(1 + pre97RevalPct/100, yearsToRetirement), weight: post88pre97AccruedPct});
+        weights.push({factor: Math.pow(1 + post97RevalPct/100, yearsToRetirement), weight: post97AccruedPct});
+        // weighted factor = sum(weight_i * factor_i) / totalAccruedPct
+        const sumWeighted = weights.reduce((s, w) => s + (w.weight * w.factor), 0);
+        revalFactorUsed = (sumWeighted / totalAccruedPct) || Math.pow(1 + post97RevalPct/100, yearsToRetirement);
+      } else {
+        // fallback: use post97 reval
+        revalFactorUsed = Math.pow(1 + post97RevalPct/100, yearsToRetirement);
+      }
+      predictedPensionAtRetirement = deferredValue * revalFactorUsed;
+    }
+
+    // simple escalation projection after retirement (5 years)
+    const escalationPct = 2.0; // default illustrative escalation
+    const escalationYears = 5;
+    const escalationProjection = [];
+    if(predictedPensionAtRetirement !== null){
+      let cur = predictedPensionAtRetirement;
+      for(let i=1;i<=escalationYears;i++){
+        cur = cur * (1 + escalationPct/100);
+        escalationProjection.push({year:i, amount: cur});
+      }
+    }
+
+    // Build HTML
+    let html = '';
+    html += `<div class="panel">`;
+    html += `<h3>Service split summary</h3>`;
+    html += `<table>`;
+    html += `<tr><th>Period</th><th>Years</th><th>Months</th><th>Exact years</th></tr>`;
+    function ymRow(name, months){
+      const y = Math.floor(months/12), m = months%12, exact = (months/12).toFixed(3);
+      return `<tr><td>${name}</td><td>${y}</td><td>${m}</td><td>${exact}</td></tr>`;
+    }
+    html += ymRow('Pre-6 Apr 1988', pre88Months);
+    html += ymRow('6 Apr 1988 — 5 Apr 1997', post88toPre97Months);
+    html += ymRow('On/after 6 Apr 1997', post97Months);
+    html += `<tr style="font-weight:700"><td>Total service</td><td>${Math.floor(totalMonths/12)}</td><td>${totalMonths%12}</td><td>${totalYearsExact.toFixed(3)}</td></tr>`;
+    html += `</table>`;
+
+    html += `<div style="margin-top:12px"><h3>Illustrative accrual (as % of final salary)</h3>`;
+    html += `<table><tr><th>Split</th><th>Accrual rate used</th><th>Accrued % of salary</th></tr>`;
+    html += `<tr><td>Pre-6 Apr 1988</td><td>${(pre97AccPct*100).toFixed(3)}% pa</td><td>${formatPct(pre88AccruedPct)}</td></tr>`;
+    html += `<tr><td>6 Apr 1988 — 5 Apr 1997</td><td>${(pre97AccPct*100).toFixed(3)}% pa</td><td>${formatPct(post88pre97AccruedPct)}</td></tr>`;
+    html += `<tr><td>On/after 6 Apr 1997</td><td>${(post97AccPct*100).toFixed(3)}% pa</td><td>${formatPct(post97AccruedPct)}</td></tr>`;
+    html += `<tr style="font-weight:700"><td>Total accrued (at leaving)</td><td></td><td>${formatPct(totalAccruedPct)}</td></tr>`;
+    html += `</table></div>`;
+
+    html += `<div style="margin-top:12px"><h3>Illustrative GMP estimate</h3>`;
+    html += `<div class="small muted">GMP applies to service within 6 Apr 1978 — 5 Apr 1997. This is an illustrative estimate only.</div>`;
+    html += `<table><tr><th>Measure</th><th>Value (as % of salary)</th></tr>`;
+    html += `<tr><td>Estimated GMP (illustrative rate ${(illustrativeGMPAccrualPctPerYear*100).toFixed(3)}% pa)</td><td>${formatPct(illustrativeGMPPct)}</td></tr>`;
+    html += `<tr style="font-weight:700"><td>Excess over GMP (accrued % − est. GMP)</td><td>${formatPct(excessGMPPct)}</td></tr>`;
+    html += `</table>`;
+    html += `</div>`;
+
+    html += `<div style="margin-top:12px"><h3>Revaluation example (to retirement in ${yearsToRetirement} year(s))</h3>`;
+    html += `<div class="small muted">Each split is compounded by an example revaluation rate.</div>`;
+    html += `<table><tr><th>Split</th><th>Reval rate used</th><th>Revalued % of salary</th></tr>`;
+    html += `<tr><td>Pre-6 Apr 1988</td><td>${pre97RevalPct}% pa</td><td>${formatPct(pre88RevalPctVal)}</td></tr>`;
+    html += `<tr><td>6 Apr 1988 — 5 Apr 1997</td><td>${pre97RevalPct}% pa</td><td>${formatPct(post88pre97RevalPct)}</td></tr>`;
+    html += `<tr><td>On/after 6 Apr 1997</td><td>${post97RevalPct}% pa</td><td>${formatPct(post97RevalPctVal)}</td></tr>`;
+    html += `<tr style="font-weight:700"><td>Total revalued (to retirement)</td><td></td><td>${formatPct(totalRevalPct)}</td></tr>`;
+    html += `</table></div>`;
+
+    if(predictedPensionAtRetirement !== null){
+      html += `<div style="margin-top:12px"><h3>Predicted pension from deferred value</h3>`;
+      html += `<div class="small muted">Deferred pension at leaving: ${formatGBP(deferredValue)} (annual). We revalue using a splits-weighted revaluation factor to retirement.</div>`;
+      html += `<table><tr><th>Measure</th><th>Value</th></tr>`;
+      html += `<tr><td>Weighted revaluation factor used</td><td>${revalFactorUsed.toFixed(6)}</td></tr>`;
+      html += `<tr><td>Predicted pension at retirement (annual)</td><td><strong>${formatGBP(predictedPensionAtRetirement)}</strong></td></tr>`;
+      html += `</table>`;
+
+      // escalation projection
+      html += `<div style="margin-top:10px"><strong>Escalation example (annual ${2}% pa)</strong>`;
+      html += `<table><tr><th>Year after retirement</th><th>Pension amount</th></tr>`;
+      escalationProjection.forEach(r=>{
+        html += `<tr><td>+${r.year}</td><td>${formatGBP(r.amount)}</td></tr>`;
+      });
+      html += `</table></div></div>`;
+    }
+
+    html += `<div class="small muted" style="margin-top:12px"><strong>Guidance</strong>: All numbers are illustrative. Accrued values are shown as % of final salary — multiply by the member's final salary to obtain monetary amounts. For precise GMP and revaluation apply official scheme data or actuary guidance.</div>`;
+
+    html += `</div>`; // panel
+    out.innerHTML = html;
+  });
+
+  resetBtn.addEventListener('click', ()=>{
+    document.getElementById('joined').value = '';
+    document.getElementById('left').value = '';
+    document.getElementById('deferredValue').value = '';
+    document.getElementById('yearsToRetire').value = '5';
+    out.innerHTML = '';
+  });
+</script>
+</body>
+</html>
